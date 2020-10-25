@@ -63,18 +63,36 @@ const users = {
     });
   },
 
-  updateUser: (data, email) => {
-    // console.log(data)
-    return new Promise((resolve, reject) => {
-      db.query(`UPDATE users SET ? WHERE email = ?`, [data, email], (err, result) => {
-        if (err) {
-          reject(new Error(err))
-        } else {
-          resolve(result)
-        }
+//   getDetail: (id) => {
+//     return new Promise((resolve,reject) => {
+//         db.query(`SELECT * from users where id = ${id}`,(err,result)=> {
+//             err? reject(new Error(err)) : resolve(result)
+//         })
+//     })
+// },
+getOne: (id) => {
+  return new Promise((resolve, reject) => {
+      db.query(`SELECT * FROM users WHERE id=${id}`, (err, result) => {
+          if (err) {
+              reject(new Error(err))
+          } else {
+              resolve(result)
+          }
       })
+  })
+},
+
+  updateUsers: (data, id) => {
+    return new Promise((resolve,reject) => {
+        db.query(`UPDATE users SET ? WHERE id = ${id}`, [data, id], (err, result) => {
+            if(err) {
+                reject(new Error(err))
+            } else {
+                resolve(result)
+            }
+        })
     })
-  },
+},
 
   update: (id, data) => {
     return new Promise((resolve, reject) => {
@@ -122,7 +140,7 @@ const users = {
         }
       })
     })
-  },
+  }
 };
 
 module.exports = users;

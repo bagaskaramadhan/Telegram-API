@@ -1,175 +1,185 @@
 const usersModel = require('../models/users');
-const { success, failed } = require('../helpers/response');
-const bcrypt = require('bcrypt');
+const {
+  success,
+  failed
+} = require('../helpers/response');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken')
 const fs = require('fs')
-const { JWTSECRET, TOKENREFREST,USEREMAIL,USERPASS } = require('../helpers/env');
+const {
+  JWTSECRET
+} = require('../helpers/env');
+
 const upload = require('../helpers/uploads')
-const nodemailer = require('nodemailer')
-const tokenRefres = []
-const generateToken = (email) => {
-  return jwt.sign(email, JWTSECRET, {expiresIn:'10h'})
-}
+const path = require('path');
+const { error } = require('console');
 
 const users = {
-  register: async(req, res) => {
-    try {
-      const data = req.body
-      const salt = await bcrypt.genSalt(10)
-      const hasPassword = await bcrypt.hash(data.password, salt)
-      const newData = {
-        email: data.email,
-        name: data.name,
-        username: data.name,
-        password: hasPassword
-      }
-      
-      usersModel.register(newData)
-      .then((result) => {
-        const token = jwt.sign({email: data.email}, JWTSECRET)
-        const output = `<center><h3>Hello ${data.email}</h3>
-        <h3>Thank you for registration</h3>
-        <p>You can confirm your email after click link <br> <a href="http://localhost:3000/users/verification/${token}">Activation</a></p></center>
-        `
-        let transporter = nodemailer.createTransport({
-          host: 'smtp.gmail.com',
-          port: 465,
-          secure: true,
-          requireSSL: true,
-          auth: {
-              user: USEREMAIL,
-              pass: USERPASS
-          }
-        })
-        let Mail = {
-          from: `'Telegram Team' <${USEREMAIL}>`,
-          to: data.email,
-          subject: 'Verification Email',
-          text: 'Plaintext version of the message',
-          html: output
-        }
-        transporter.sendMail(Mail)
-        success(res, result, 'Please check your mail for activation')
-      })
-      .catch((err) => {
-        console.log(err)
-        if(err.message = 'Duplicate entry'){
-          failed(res, [], 'User Already exist')
-        } else {
-          failed(res, [], err.message)
-        }
-      })
-    } catch (error) {
-      failed(res, [], 'internal server error');
-    }
-  },
-  verify: (req, res) => {
-    const token = req.params.token
-    jwt.verify(token, JWTSECRET, (err, decode) => {
-      if(err) {
-        failed(res, [], 'Failed Auth!')
-      } else {
-        const data = jwt.decode(token)
-        const email = data.email
-        usersModel.activation(email).then(() => {
-          res.render('index', {email})
-        }).catch(err => {
-          failed(res, [], err.message)
-        })
-      }
-    })
-  },
-
-  login: async(req, res) => {
+  register: (req, res) => {
     const body = req.body
-    usersModel.login(body)
-    .then(async(result) => {
-        const results = result[0]
-        const password = results.password
-        const isMatch = await bcrypt.compare(body.password, password)
-        if(isMatch){
-          const email = {email: results.email}
-          const refresToken = jwt.sign(email, TOKENREFREST)
-          tokenRefres.push(refresToken)
-          const token = generateToken(email)
-          
-          const dataToken = { 
-            token,
-            refresToken 
-          }
-          success(res, dataToken, 'Login Success')
-        }else{
-          failed(res, [], 'Wrong password/email')
-        }
-    })
-    .catch((err) => {
-        failed(res, [], err.message)
-    })
-  },
-  tokenRefres: (req, res) => {
-    const tokenRequest = req.body.tokenRequest
-    if(tokenRequest === ''){
-      console.log('gagal')
-    }else{
-      jwt.verify(tokenRequest, TOKENREFREST, (err, result) => {
-        const newToken = generateToken({email: result.email})
-        res.json({newToken})
-      })
-    }
-  },
-  updateUser: (req, res) => {
-    upload.single('image')(req, res, (err) => { 
-      if(err){
-        if(err.code === `LIMIT_FIELD_VALUE`){
-          failed(res, [], `Image size is to big`)
-        }else{
-          failed(res, [], err) 
-        }
-      }else{
-        const body = req.body
-        const email = req.params.email
-        usersModel.getEmail(email)
-        .then ((response) => {
-          const imageOld = response[0].image
-          body.image = !req.file ? imageOld : req.file.filename
-          if (body.image !== imageOld) {
-            if (imageOld !== 'default.png') {
-              fs.unlink(`src/uploads/${imageOld}`, (err) => {
-                if (err) {
-                  failed(res, [], err.message)
-                } else {
-                  usersModel.updateUser(body, email)
-                  .then((result) => {
-                    success(res, result, 'Update success')
+    if (!body.name || !body.email || !body.password) {
+      failed(res, [], 'Name, email or password is required!')
+    } else {
+      const name = body.name
+      const nameSplit = name.split(' ')
+      const data = {
+        name: body.name,
+        email: body.email.toLowerCase(),
+        username: nameSplit.join(' '),
+        password: bcrypt.hashSync(body.password, 10)
+      }
+      jwt.sign({
+        data: data.email
+      }, JWTSECRET, {
+        expiresIn: '60'
+      }, (err, response) => {
+        if (err) {
+          failed(res, [], err.message)
+        } else {
+          usersModel.getEmail(data.email)
+            .then((result) => {
+              if (result.length === 0) {
+                const sendData = {
+                  name: data.name,
+                  email: data.email,
+                  username: data.username,
+                  password: data.password,
+                  token: response
+                }
+                usersModel.register(sendData)
+                  .then((results) => {
+                    success(res, results, 'Register success!')
                   })
                   .catch((err) => {
                     failed(res, [], err.message)
                   })
-                }
-              })
+              } else {
+                failed(res, [], 'Email is already registered!')
+              }
+            })
+            .catch((err) => {
+              failed(res, [], err.message)
+            })
+        }
+      });
+    }
+  },
+
+  login: (req, res) => {
+    const body = req.body
+    if (!body.email || !body.password) {
+      failed(res, [], 'Email or password is required!')
+    } else {
+      const data = {
+        email: req.body.email.toLowerCase(),
+        password: req.body.password
+      }
+      usersModel.login(data)
+        .then((result) => {
+          const results = result[0]
+          if (!results) {
+            failed(res, [], 'Email not registered, please register')
+          } else {
+            const password = results.password
+            const isMatch = bcrypt.compareSync(data.password, password)
+            if (isMatch) {
+              success(res, results, 'Login Success')
             } else {
-              usersModel.updateUser(body, email)
-                .then((result) => {
-                  success(res, result, 'Update success')
+              failed(res, [], 'Email or password is wrong!')
+            }
+          }
+        }).catch((err) => {
+          failed(res, [], err.message)
+        });
+    }
+  },
+  // getDetail: (req, res) => {
+  //   try {
+  //     const id = req.params.id
+  //     usersModel.getDetail(id)
+  //       .then((result) => {
+  //         success(res, result, 'Get detail users success')
+  //       })
+  //   } catch {
+  //     failed(res, [], 'internal server error')
+  //   }
+  // },
+  updateUsers: (req, res) => {
+      upload.single('image')
+      (req, res, async (err) => {
+        if (err) {
+          if (err.code === `LIMIT_FIELD_VALUE`) {
+            failed(res, [], `Image size is to big`)
+          } else {
+            failed(res, [], err)
+          }
+        } else {
+          const id = req.params.id
+          const body = req.body
+          body.image = !req.file? '' : req.file.filename
+          // console.log(body)
+          try {
+            const datauser = await usersModel.getDetail(id)
+            // console.log(datauser)
+            const newImage = body.image
+            if (newImage) {
+              if (datauser[0].image === 'default.png') {
+                const results = await usersModel.updateUsers(body, id)
+                .then((results) => {
+                  success(res,results, 'Success update')
                 })
                 .catch((err) => {
-                  failed(res, [], err.message)
+                  failed(res, [], err)
                 })
+              } else {
+                const oldPath = path.join(__dirname + `/../../src/uploads/${datauser[0].image}`)
+                fs.unlink(oldPath, (err) => {
+                  if (err) throw err
+                  // console.log('delete')
+                })
+                const results = await usersModel.updateUsers(body,id)
+                .then((results)=>{
+                  success(res,results, 'Success update')
+                })
+                .catch((err)=>{
+                  failed(res, [], err)
+                })
+              }
+            } else {
+              body.image = datauser[0].image
+              const results = await usersModel.updateUsers(body,id)
+              .then((results) => {
+                success(res,results, 'Success update')
+              })
+              .catch((err)=>{
+                failed(res, [], err)
+              })
             }
-          } else {
-            usersModel.updateUser(body, email)
-              .then((result) => {
-                success(res, result, 'Update success')
-              })
-              .catch((err) => {
-                failed(res, [], err.message)
-              })
+          } catch (error) {
+            
           }
-        })
-      }
-    })
-
+        }
+      })
   },
+  getAll: (req, res) => {
+    usersModel.getAll()
+    .then((result) => {
+      success(res, result, 'Success Get All Data')
+    })
+  },
+  getUsers: (req, res) => {
+    try {
+        const id = req.params.id
+        usersModel.getOne(id)
+            .then((result) => {
+                success(res, result, 'success get users')
+            }).catch((err) => {
+                failed(res, [], err.message)
+            })
+    } catch (err) {
+        failed(res, [], "Server internal error")
+    }
+}
 }
 
 module.exports = users

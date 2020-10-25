@@ -11,7 +11,7 @@ const connection = mysql.createConnection({
 
 connection.connect( function(err){
   if (err){ 
-      throw err;
+    console.log(`Not Connected on Database ${DTBS}`);
   }
   else {
       console.log(`Connected on Database ${DTBS}`);

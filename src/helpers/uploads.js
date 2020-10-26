@@ -11,9 +11,9 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: {fieldSize: 3000000},
+    limits: {fileSize: 200000},
     fileFilter(req, file, callback){
-      if(file.originalname.match(/\.(jpg|jpeg|png)\b/)) {
+      if(file.originalname.match(/\.(jpg|jpeg)\b/)) {
         callback(null, true)
       }else{
         callback('Wrong image type', null)

@@ -105,68 +105,89 @@ const users = {
   //   }
   // },
   updateUsers: (req, res) => {
-      upload.single('image')
-      (req, res, async (err) => {
-        if (err) {
-          if (err.code === `LIMIT_FIELD_VALUE`) {
-            failed(res, [], `Image size is to big`)
-          } else {
-            failed(res, [], err)
-          }
-        } else {
-          const id = req.params.id
-          const body = req.body
-          body.image = !req.file? '' : req.file.filename
-          // console.log(body)
-          try {
-            const datauser = await usersModel.getDetail(id)
-            // console.log(datauser)
-            const newImage = body.image
-            if (newImage) {
-              if (datauser[0].image === 'default.png') {
-                const results = await usersModel.updateUsers(body, id)
-                .then((results) => {
-                  success(res,results, 'Success update')
-                })
-                .catch((err) => {
-                  failed(res, [], err)
-                })
-              } else {
-                const oldPath = path.join(__dirname + `/../../src/uploads/${datauser[0].image}`)
-                fs.unlink(oldPath, (err) => {
-                  if (err) throw err
-                  // console.log('delete')
-                })
-                const results = await usersModel.updateUsers(body,id)
-                .then((results)=>{
-                  success(res,results, 'Success update')
-                })
-                .catch((err)=>{
-                  failed(res, [], err)
-                })
-              }
+    try {
+        // const body = req.body
+        upload.single('image')(req, res, (err) => {
+            if (err) {
+                if (err.code === `LIMIT_FILE_SIZE`) {
+                    failed(res, [], `Image size is to big`)
+                } else {
+                    failed(res, [], err)
+                }
             } else {
-              body.image = datauser[0].image
-              const results = await usersModel.updateUsers(body,id)
-              .then((results) => {
-                success(res,results, 'Success update')
-              })
-              .catch((err)=>{
-                failed(res, [], err)
-              })
+                const id = req.params.id
+                const body = req.body
+                usersModel.getOne(id)
+                    .then((response) => {
+                      // console.log(req.file.filename)
+                        const imageOld = response[0].image
+                        body.image = !req.file ? imageOld : req.file.filename
+                        
+                        if (body.image !== imageOld) {
+                            if (imageOld !== 'default.png') {
+                                fs.unlink(`src/uploads/${imageOld}`, (err) => {
+                                    if (err) {
+                                        failed(res, [], err.message)
+                                    } else {
+                                        usersModel.updateUsers(body, id)
+                                            .then((result) => {
+                                                success(res, result, 'Update success')
+                                            })
+                                            .catch((err) => {
+                                                failed(res, [], err.message)
+                                            })
+                                    }
+                                })
+                            } else {
+                                usersModel.updateUsers(body, id)
+                                    .then((result) => {
+                                        success(res, result, 'Update success')
+                                    })
+                                    .catch((err) => {
+                                        failed(res, [], err.message)
+                                    })
+                            }
+                        } else {
+                            usersModel.updateUsers(body, id)
+                                .then((result) => {
+                                    success(res, result, 'Update success')
+                                })
+                                .catch((err) => {
+                                    failed(res, [], err.message)
+                                })
+                        }
+                    })
             }
-          } catch (error) {
-            
-          }
-        }
-      })
-  },
-  getAll: (req, res) => {
-    usersModel.getAll()
-    .then((result) => {
-      success(res, result, 'Success Get All Data')
-    })
-  },
+        })
+    } catch (err) {
+        failed(res, [], 'Server Internal Error')
+    }
+},
+getAll: (req, res) => {
+  try {
+      const name = !req.query.name ? "" : req.query.name;
+      const sort = !req.query.sort ? "id" : req.query.sort;
+      const typesort = !req.query.typesort ? "ASC" : req.query.typesort;
+      const limit = !req.query.limit ? 10 : parseInt(req.query.limit);
+      const page = !req.query.page ? 1 : parseInt(req.query.page);
+      const offset = page <= 1 ? 0 : (page - 1) * limit;
+      usersModel.getAll(name, sort, typesort, limit, offset)
+          .then((result) => {
+              const totalRows = result[0].count;
+              const meta = {
+                  total: totalRows,
+                  totalPage: Math.ceil(totalRows / limit),
+                  page: page,
+              }
+              successWithMeta(res, result, meta, "Get all data success");
+          })
+          .catch((err) => {
+              failed(res, [], err.message);
+          })
+  } catch (error) {
+      failed(res, [], "Server internal error")
+  }
+},
   getUsers: (req, res) => {
     try {
         const id = req.params.id

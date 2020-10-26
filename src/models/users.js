@@ -16,9 +16,9 @@ const users = {
     return new Promise((resolve, reject) => {
       db.query(`SELECT * FROM users`, (err, result) => {
         if (err) {
-          reject(new Error(err));
+          reject(new Error(err))
         } else {
-          resolve(result);
+          resolve(result)
         }
       });
     });

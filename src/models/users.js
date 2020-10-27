@@ -34,9 +34,6 @@ const users = {
       });
     });
   },
-
-
-
   activation: (email) => {
     return new Promise((resolve, reject) => {
       db.query(`UPDATE users SET is_active=1 WHERE email='${email}'`, (err, res) => {
@@ -48,7 +45,6 @@ const users = {
       })
     })
   },
-
   login: (data) => {
     return new Promise((resolve, reject) => {
       db.query(
@@ -62,15 +58,7 @@ const users = {
       );
     });
   },
-
-//   getDetail: (id) => {
-//     return new Promise((resolve,reject) => {
-//         db.query(`SELECT * from users where id = ${id}`,(err,result)=> {
-//             err? reject(new Error(err)) : resolve(result)
-//         })
-//     })
-// },
-getOne: (id) => {
+  getOne: (id) => {
   return new Promise((resolve, reject) => {
       db.query(`SELECT * FROM users WHERE id=${id}`, (err, result) => {
           if (err) {
@@ -105,9 +93,9 @@ getOne: (id) => {
       })
     })
   },
-  delete: (id) => {
+  deleteMsg: (id) => {
     return new Promise((resolve, reject) => {
-      db.query(`DELETE FROM users WHERE id='${id}'`, (err, result) => {
+      db.query(`DELETE FROM messages WHERE id='${id}'`, (err, result) => {
         if (err) {
           reject(new Error(err))
         } else {

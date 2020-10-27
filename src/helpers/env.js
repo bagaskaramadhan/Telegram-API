@@ -10,7 +10,8 @@ const env = {
   TOKENREFREST: process.env.PRIVATEKEYREFRESH,
   USEREMAIL: process.env.USEREMAIL,
   USERPASS: process.env.USERPASS,
-  HOSTURL: process.env.HOSTURL
+  HOSTURL: process.env.HOSTURL,
+  JWTREGISTER: process.env.JWTREGIS
 };
 
 module.exports = env;

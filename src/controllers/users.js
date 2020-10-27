@@ -1,4 +1,5 @@
 const usersModel = require('../models/users');
+const {deleteMsg} = require('../models/users')
 const {
   success,
   failed
@@ -7,12 +8,13 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken')
 const fs = require('fs')
 const {
-  JWTSECRET
+  JWTSECRET,JWTREGISTER
 } = require('../helpers/env');
-
+const sendMail = require('../helpers/mail')
 const upload = require('../helpers/uploads')
 const path = require('path');
 const { error } = require('console');
+const { send } = require('process');
 
 const users = {
   register: (req, res) => {
@@ -28,13 +30,10 @@ const users = {
         username: nameSplit.join(' '),
         password: bcrypt.hashSync(body.password, 10)
       }
-      jwt.sign({
-        data: data.email
-      }, JWTSECRET, {
-        expiresIn: '60'
-      }, (err, response) => {
+      jwt.sign({ data: data.email }, JWTREGISTER, (err, response) => {
         if (err) {
           failed(res, [], err.message)
+          console.log(err.message)
         } else {
           usersModel.getEmail(data.email)
             .then((result) => {
@@ -48,6 +47,7 @@ const users = {
                 }
                 usersModel.register(sendData)
                   .then((results) => {
+                    sendMail(sendData.email, sendData.token)
                     success(res, results, 'Register success!')
                   })
                   .catch((err) => {
@@ -64,6 +64,24 @@ const users = {
       });
     }
   },
+  verify: (req, res) => {
+    const token = req.params.token
+    jwt.verify(token, JWTREGISTER, (err, decode) => {
+      if(err) {
+        failed(res, [], 'Failed Auth!')
+      } else {
+        // const data = jwt.decode(token)
+        const email = decode.data
+        usersModel.activation(email).then(() => {
+          res.render('index', {email})
+          // console.log('ok')
+          // res.json({msg: 'oke'})
+        }).catch(err => {
+          failed(res, [], err.message)
+        })
+      }
+    })
+  },
 
   login: (req, res) => {
     const body = req.body
@@ -79,7 +97,10 @@ const users = {
           const results = result[0]
           if (!results) {
             failed(res, [], 'Email not registered, please register')
-          } else {
+          } else if (results.is_active === 0) {
+            failed(res, [], 'Please Active Email First')
+          }
+          else {
             const password = results.password
             const isMatch = bcrypt.compareSync(data.password, password)
             if (isMatch) {
@@ -109,8 +130,9 @@ const users = {
         // const body = req.body
         upload.single('image')(req, res, (err) => {
             if (err) {
+              // console.log(err)
                 if (err.code === `LIMIT_FILE_SIZE`) {
-                    failed(res, [], `Image size is to big`)
+                    failed(res, [], 'Large image')
                 } else {
                     failed(res, [], err)
                 }
@@ -200,6 +222,15 @@ getAll: (req, res) => {
     } catch (err) {
         failed(res, [], "Server internal error")
     }
+},
+deleteMessage: async (req,res) => {
+  try {
+    const id = req.params.id
+    const deleteMessage = await deleteMsg(id)
+    success(res,deleteMessage, 'Delete Message Success')
+  } catch (err) {
+    error(res,[],err.message)
+  }
 }
 }
 

@@ -7,6 +7,7 @@ const socketio = require('socket.io')
 const cors = require('cors')
 const usersModel = require('./src/models/users')
 const db = require('./src/configs/db')
+const path = require('path')
 
 const app = express()
 const server = http.createServer(app)
@@ -58,7 +59,8 @@ io.on('connection', (socket) => {
   })
 })
 
-
+app.set('views', path.join(__dirname, 'src/views'));
+app.set('view engine', 'ejs');
 app.use(express.static('./src/uploads'));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
